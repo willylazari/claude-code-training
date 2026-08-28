@@ -1,6 +1,7 @@
-import { lastUtcDays } from "@/lib/dates"
+import { lastUtcDays, utcDayKey } from "@/lib/dates"
 import { GENERATED_AT } from "./generate"
 import { store } from "./store"
+import { Currency } from "./types"
 
 /**
  * Dashboard metrics. Everything here is reported in USD minor units for the
@@ -10,39 +11,44 @@ import { store } from "./store"
 
 export interface DailyVolume {
   date: string
+  /** The one currency every amount in this row is in. */
+  currency: Currency
+  /** Integer minor units, like every other amount in the app. */
   captured: number
+  /** Integer minor units, from the refund records, on the day they were made. */
   refunded: number
 }
 
-export function dailyVolume(days = 30): DailyVolume[] {
+/**
+ * Captured and refunded volume per UTC day, in one currency. Amounts in
+ * other currencies are not added in: a EUR payment is not a number of
+ * dollars, and the chart says "$".
+ */
+export function dailyVolume(days = 30, currency: Currency = "USD"): DailyVolume[] {
   const keys = lastUtcDays(days, GENERATED_AT)
   const buckets = new Map<string, DailyVolume>(
-    keys.map((date) => [date, { date, captured: 0, refunded: 0 }]),
+    keys.map((date) => [date, { date, currency, captured: 0, refunded: 0 }]),
   )
 
+  // Bucket by the UTC day, the same calendar the keys above were built on.
+  // The server's local calendar would move evening payments to the wrong
+  // day for every merchant east or west of it. Integer minor units all the
+  // way; nothing here needs to be rounded back.
   for (const payment of store.payments) {
-    // Bucket by calendar date.
-    const key = new Date(payment.createdAt).toLocaleDateString("en-CA")
-    const bucket = buckets.get(key)
-    if (!bucket) continue
-
-    if (payment.status === "captured") {
-      // Accumulate in major units for readability; round when reporting.
-      bucket.captured += payment.amount / 100
-    }
-    if (payment.status === "refunded") {
-      bucket.refunded += payment.amount / 100
-    }
+    if (payment.status !== "captured" || payment.currency !== currency) continue
+    const bucket = buckets.get(utcDayKey(payment.createdAt))
+    if (bucket) bucket.captured += payment.amount
   }
 
-  return keys.map((date) => {
-    const bucket = buckets.get(date)!
-    return {
-      date,
-      captured: Math.round(bucket.captured * 100),
-      refunded: Math.round(bucket.refunded * 100),
-    }
-  })
+  // Refunds come from the refund ledger: their own amount (a partial refund
+  // is not the whole charge) on their own day (not the charge's day).
+  for (const refund of store.refunds) {
+    if (refund.currency !== currency) continue
+    const bucket = buckets.get(utcDayKey(refund.createdAt))
+    if (bucket) bucket.refunded += refund.amount
+  }
+
+  return keys.map((date) => buckets.get(date)!)
 }
 
 export function headlineMetrics() {
