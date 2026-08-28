@@ -69,6 +69,18 @@ export function filterPayments(filters: PaymentFilters): Payment[] {
   })
 }
 
+/**
+ * Whether a filter set narrows the rows at all, by the same rules
+ * filterPayments applies. Anything that names a scope to a user should ask
+ * this rather than re-deriving it.
+ */
+export function hasActiveFilters(filters: PaymentFilters): boolean {
+  const { status, merchantId, search, from, to } = filters
+  return Boolean(
+    (status && status !== "all") || merchantId || search?.trim() || from || to,
+  )
+}
+
 export function sortPayments(
   payments: Payment[],
   sort: PaymentFilters["sort"] = "createdAt",

@@ -1,25 +1,57 @@
 import { filterPayments, parseFilters, sortPayments } from "@/data/queries"
-import { exportFilename, toCsv } from "@/lib/csv"
-import { NextRequest } from "next/server"
+import {
+  exportFilename,
+  exportScopeLabel,
+  parseExportColumns,
+  parseExportScope,
+  toCsv,
+} from "@/lib/csv"
+import { NextRequest, NextResponse } from "next/server"
 
 /**
  * Exports the payments table as CSV.
  *
- * Honors the active filters and reuses the query builder, but the column set
- * and the scope are fixed. Giving ops control over both is NWP-101.
+ * Ops chooses the columns and the scope (NWP-101). Both are parsed against
+ * an allowlist before they touch anything, and the rows still come from
+ * the one query builder — never paginated, so the file is every matching
+ * payment rather than the page on screen.
  */
 export function GET(request: NextRequest) {
-  const filters = parseFilters(request.nextUrl.searchParams)
+  const params = request.nextUrl.searchParams
+
+  // Accept both `columns=a,b` and the repeated-key form `columns=a&columns=b`.
+  const columns = parseExportColumns(
+    params.has("columns") ? params.getAll("columns").join(",") : null,
+  )
+  if (columns.length === 0) {
+    return NextResponse.json(
+      { error: "Select at least one column to export." },
+      { status: 400 },
+    )
+  }
+
+  // "All payments" keeps the sort and drops every filter. Re-parsing a
+  // reduced param set keeps the allowlist in one place and means a filter
+  // added to PaymentFilters later cannot leak into the all-payments file.
+  const scope = parseExportScope(params.get("scope"))
+  const unfiltered = new URLSearchParams()
+  for (const key of ["sort", "direction"]) {
+    const value = params.get(key)
+    if (value !== null) unfiltered.set(key, value)
+  }
+  const filters = parseFilters(scope === "all" ? unfiltered : params)
+
   const rows = sortPayments(
     filterPayments(filters),
     filters.sort,
     filters.direction,
   )
+  const filename = exportFilename(new Date(), exportScopeLabel(scope, filters))
 
-  return new Response(toCsv(rows), {
+  return new Response(toCsv(rows, columns), {
     headers: {
       "content-type": "text/csv; charset=utf-8",
-      "content-disposition": `attachment; filename="${exportFilename()}"`,
+      "content-disposition": `attachment; filename="${filename}"`,
     },
   })
 }
