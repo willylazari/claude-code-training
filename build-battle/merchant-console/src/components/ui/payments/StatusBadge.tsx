@@ -1,10 +1,18 @@
 import { Badge } from "@/components/Badge"
-import { DisputeStatus, PaymentStatus, PayoutStatus } from "@/data/types"
+import {
+  CardStatus,
+  DisputeStatus,
+  PaymentStatus,
+  PayoutStatus,
+} from "@/data/types"
 import { cx } from "@/lib/utils"
 
-type AnyStatus = PaymentStatus | DisputeStatus | PayoutStatus
+type AnyStatus = PaymentStatus | DisputeStatus | PayoutStatus | CardStatus
 
 const LABELS: Record<AnyStatus, string> = {
+  active: "Active",
+  frozen: "Frozen",
+  cancelled: "Cancelled",
   authorized: "Authorized",
   captured: "Captured",
   refunded: "Refunded",
@@ -20,6 +28,9 @@ const LABELS: Record<AnyStatus, string> = {
 }
 
 const DOTS: Record<AnyStatus, string> = {
+  active: "bg-emerald-600 dark:bg-emerald-400",
+  frozen: "bg-blue-500 dark:bg-blue-500",
+  cancelled: "bg-gray-500 dark:bg-gray-500",
   authorized: "bg-blue-500 dark:bg-blue-500",
   captured: "bg-emerald-600 dark:bg-emerald-400",
   refunded: "bg-gray-500 dark:bg-gray-500",
@@ -35,6 +46,9 @@ const DOTS: Record<AnyStatus, string> = {
 }
 
 const VARIANTS: Record<AnyStatus, "default" | "neutral" | "success" | "error" | "warning"> = {
+  active: "success",
+  frozen: "default",
+  cancelled: "neutral",
   authorized: "default",
   captured: "success",
   refunded: "neutral",

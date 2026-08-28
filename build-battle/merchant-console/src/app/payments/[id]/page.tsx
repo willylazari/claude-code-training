@@ -1,4 +1,6 @@
 import { Divider } from "@/components/Divider"
+import { Field } from "@/components/ui/detail/Field"
+import { Timeline } from "@/components/ui/detail/Timeline"
 import { StatusBadge } from "@/components/ui/payments/StatusBadge"
 import { merchantById } from "@/data/merchants"
 import {
@@ -84,24 +86,7 @@ export default async function PaymentDetail({
       <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-50">
         Timeline
       </h2>
-      <ol className="mt-4 space-y-4">
-        {timeline.map((entry, index) => (
-          <li key={index} className="flex gap-3">
-            <span
-              className="mt-1.5 size-2 shrink-0 rounded-full bg-blue-500"
-              aria-hidden="true"
-            />
-            <div>
-              <p className="text-sm text-gray-900 dark:text-gray-50">
-                {entry.label}
-              </p>
-              <p className="text-sm text-gray-500">
-                {formatInZone(entry.at, merchant.timezone)}
-              </p>
-            </div>
-          </li>
-        ))}
-      </ol>
+      <Timeline entries={timeline} timeZone={merchant.timezone} />
 
       {dispute && (
         <>
@@ -120,21 +105,6 @@ export default async function PaymentDetail({
           </dl>
         </>
       )}
-    </div>
-  )
-}
-
-function Field({
-  label,
-  children,
-}: {
-  label: string
-  children: React.ReactNode
-}) {
-  return (
-    <div>
-      <dt className="text-sm text-gray-500">{label}</dt>
-      <dd className="mt-1 text-sm text-gray-900 dark:text-gray-50">{children}</dd>
     </div>
   )
 }

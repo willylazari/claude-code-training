@@ -71,6 +71,56 @@ export interface Payout {
   paymentIds: string[]
 }
 
+export type CardStatus = "active" | "frozen" | "cancelled"
+
+/** What a card may be spent on. "any" is no lock. */
+export type CardCategory =
+  | "any"
+  | "software"
+  | "advertising"
+  | "travel"
+  | "office"
+  | "contractors"
+
+export type CardEventType = "issued" | "frozen" | "unfrozen" | "cancelled"
+
+export interface CardEvent {
+  type: CardEventType
+  /** ISO 8601, always UTC. */
+  at: string
+}
+
+export interface Card {
+  id: string
+  merchantId: string
+  nickname: string
+  /** The only digits of the number that are ever stored. */
+  last4: string
+  /** Opaque reference to the generated number. It cannot be turned back into one. */
+  numberRef: string
+  /** Integer minor units. Never a float. */
+  spendLimit: number
+  /** Integer minor units, same currency as the limit. */
+  spent: number
+  currency: Currency
+  category: CardCategory
+  status: CardStatus
+  /** ISO 8601, always UTC. */
+  createdAt: string
+  /** Everything that happened to the card, oldest first. */
+  history: CardEvent[]
+}
+
+/** What the issue form sends, after the server has validated it. */
+export interface IssueCardInput {
+  nickname: string
+  merchantId: string
+  /** Integer minor units. */
+  spendLimit: number
+  currency: Currency
+  category: CardCategory
+}
+
 export interface PaymentFilters {
   status?: PaymentStatus | "all"
   merchantId?: string

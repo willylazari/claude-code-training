@@ -51,7 +51,7 @@ These four explain most of the code, and breaking them is how bugs get in here.
 
 | Path | What lives there |
 | --- | --- |
-| `src/app/` | Console routes: overview, payments, disputes, payouts. Cards is NWP-201 and does not exist yet |
+| `src/app/` | Console routes: overview, payments, disputes, payouts, cards |
 | `src/app/api/` | Route handlers |
 | `src/data/` | Seed JSON, the in-memory store, and types |
 | `src/components/` | Tremor-based primitives and the console's own components |

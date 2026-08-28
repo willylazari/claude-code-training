@@ -1,6 +1,6 @@
 import { generate } from "./generate"
 import { merchants } from "./merchants"
-import { Dispute, Payment, Payout, Refund } from "./types"
+import { Card, Dispute, Payment, Payout, Refund } from "./types"
 
 /**
  * In-memory store.
@@ -19,6 +19,15 @@ interface Store {
   refunds: Refund[]
   disputes: Dispute[]
   payouts: Payout[]
+  cards: Card[]
+  /** Idempotency key → the card it made and the input it was made with. */
+  cardIssueKeys: Map<string, IssueKeyRecord>
+}
+
+export interface IssueKeyRecord {
+  cardId: string
+  /** The input the key was first used with; a different body is a conflict. */
+  fingerprint: string
 }
 
 declare global {
@@ -27,11 +36,24 @@ declare global {
 }
 
 function createStore(): Store {
-  const { payments, refunds, disputes, payouts } = generate()
-  return { merchants, payments, refunds, disputes, payouts }
+  const { payments, refunds, disputes, payouts, cards } = generate()
+  return {
+    merchants,
+    payments,
+    refunds,
+    disputes,
+    payouts,
+    cards,
+    cardIssueKeys: new Map(),
+  }
 }
 
-export const store: Store = globalThis.__northwindStore ?? createStore()
+// Reuse the parked store only if it has the shape this code expects. A dev
+// server started on an older tree would otherwise hand every cards route a
+// store with no `cards` in it until someone restarts it.
+const parked = globalThis.__northwindStore
+export const store: Store =
+  parked && parked.cardIssueKeys instanceof Map ? parked : createStore()
 
 if (process.env.NODE_ENV !== "production") {
   globalThis.__northwindStore = store

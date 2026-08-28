@@ -1,5 +1,9 @@
+import { generateCardNumber, lastFour } from "@/lib/cards"
 import { merchants } from "./merchants"
 import {
+  Card,
+  CardCategory,
+  CardStatus,
   Currency,
   Dispute,
   Payment,
@@ -148,7 +152,67 @@ export function generate() {
   }
 
   const payouts = generatePayouts(payments)
-  return { payments, refunds, disputes, payouts }
+  // Cards draw from the PRNG after everything else, so adding them changed
+  // no payment, refund, dispute, or payout that was already seeded.
+  const cards = generateCards()
+  return { payments, refunds, disputes, payouts, cards }
+}
+
+/**
+ * A handful of issued cards, so the list is not empty on day one and the
+ * spend bar has something to show. Numbers come from the same generator the
+ * server uses, on the test BIN; only the last four is kept, like everywhere.
+ */
+function generateCards(): Card[] {
+  const seeds: {
+    merchantId: string
+    nickname: string
+    category: CardCategory
+    limit: number
+    spentPercent: number
+    status: CardStatus
+    daysAgo: number
+  }[] = [
+    { merchantId: "mch_01", nickname: "Google Ads", category: "advertising", limit: 250000, spentPercent: 86, status: "active", daysAgo: 41 },
+    { merchantId: "mch_02", nickname: "Trail crew contractors", category: "contractors", limit: 120000, spentPercent: 35, status: "active", daysAgo: 33 },
+    { merchantId: "mch_04", nickname: "Adobe seats", category: "software", limit: 60000, spentPercent: 100, status: "frozen", daysAgo: 27 },
+    { merchantId: "mch_05", nickname: "Messe travel", category: "travel", limit: 300000, spentPercent: 12, status: "active", daysAgo: 19 },
+    { merchantId: "mch_07", nickname: "Old Zoom plan", category: "software", limit: 15000, spentPercent: 60, status: "cancelled", daysAgo: 58 },
+    { merchantId: "mch_08", nickname: "Office supplies", category: "office", limit: 40000, spentPercent: 0, status: "active", daysAgo: 3 },
+  ]
+
+  const randomDigit = () => Math.floor(rand() * 10)
+
+  return seeds.map((seed, index) => {
+    const merchant = merchants.find((m) => m.id === seed.merchantId)!
+    const issuedAt = new Date(GENERATED_AT)
+    issuedAt.setUTCDate(issuedAt.getUTCDate() - seed.daysAgo)
+    issuedAt.setUTCHours(between(8, 18), between(0, 59), 0, 0)
+    const issued = issuedAt.toISOString()
+
+    const history: Card["history"] = [{ type: "issued", at: issued }]
+    if (seed.status !== "active") {
+      const changedAt = new Date(issuedAt.getTime() + between(2, 14) * 86_400_000)
+      history.push({ type: seed.status, at: changedAt.toISOString() })
+    }
+
+    const number = generateCardNumber(randomDigit)
+    return {
+      id: `card_${pad(index + 1)}`,
+      merchantId: merchant.id,
+      nickname: seed.nickname,
+      last4: lastFour(number),
+      numberRef: `pan_seed_${pad(index + 1, 4)}`,
+      spendLimit: seed.limit,
+      // Integer minor units: percent of an integer limit, floored.
+      spent: Math.floor((seed.limit * seed.spentPercent) / 100),
+      currency: merchant.currency as Currency,
+      category: seed.category,
+      status: seed.status,
+      createdAt: issued,
+      history,
+    }
+  })
 }
 
 function generatePayouts(payments: Payment[]): Payout[] {
